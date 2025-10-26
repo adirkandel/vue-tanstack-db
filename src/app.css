@@ -9,7 +9,6 @@
   --color-primary-700: #1d4ed8;
 }
 
-
 /* Primary and Surface Palettes */
 :root {
   --p-primary-50: #ecfdf5;
@@ -57,6 +56,7 @@
   --p-text-hover-muted-color: var(--p-surface-600);
 }
 
+@custom-variant dark (&:where(.dark, .dark *));
 /*
 * Dark Mode
 * Defaults to system, change the dark variant selector to match the CSS variable configuration.
@@ -65,7 +65,7 @@
 * should match to;
 * :root[class="app-dark"]
 */
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
   :root {
       --p-primary-color: var(--p-primary-400);
       --p-primary-contrast-color: var(--p-surface-900);
@@ -83,4 +83,4 @@
       --p-text-muted-color: var(--p-surface-400);
       --p-text-hover-muted-color: var(--p-surface-300);
   }
-}
+} */

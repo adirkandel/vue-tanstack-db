@@ -1,7 +1,8 @@
 import { createCollection } from '@tanstack/vue-db'
-import { localStorageCollectionOptions } from '@tanstack/vue-db'
 import { z } from 'zod'
-import { todoCollection } from './todoCollection'
+import { queryCollectionOptions } from '@tanstack/query-db-collection'
+import { queryClient } from '../queryClient'
+import { assigneeApi } from '../api/assignees'
 
 export const assigneeSchema = z.object({
   id: z.string(),
@@ -45,36 +46,35 @@ export function getColorFromName(name: string): string {
   return colors[Math.abs(hash) % colors.length]
 }
 
-// Function to create assignee collection using localStorage
+// Function to create assignee collection with custom sync
 function createAssigneeCollection() {
   return createCollection(
-    localStorageCollectionOptions({
+    queryCollectionOptions({
       id: 'assignees',
-      storageKey: 'assignees',
+      queryClient: queryClient,
+      queryKey: ['assignees'],
+      queryFn: async () => {
+        return assigneeApi.getAll()
+      },
       getKey: (assignee: Assignee) => assignee.id,
+      
+      // Insert handler
       onInsert: async ({ transaction }) => {
-        const mutation = transaction.mutations[0];
-        console.log('Assignee inserted:', mutation.modified);
+        const mutation = transaction.mutations[0]
+        await assigneeApi.create(mutation.modified)
       },
+      
+      // Update handler
       onUpdate: async ({ transaction }) => {
-        const mutation = transaction.mutations[0];
-        console.log('Assignee updated:', mutation.original.id, mutation.changes);
+        const mutation = transaction.mutations[0]
+        await assigneeApi.update(mutation.original.id, mutation.changes)
       },
+      
+      // Delete handler - cascade deletes handled by database foreign key
       onDelete: async ({ transaction }) => {
-        const mutation = transaction.mutations[0];
-        const deletedAssigneeId = mutation.original.id;
-        console.log('Assignee deleted:', deletedAssigneeId);
-        
-        // Delete all todos assigned to this assignee
-        const todosToDelete = Array.from(todoCollection.state.entries())
-          .filter(([_, todo]) => todo.assigneeId === deletedAssigneeId)
-          .map(([id]) => ({ id }));
-
-        if (todosToDelete.length > 0) {
-          console.log(`Deleting ${todosToDelete.length} todo(s) assigned to deleted assignee`);
-          await Promise.all(todosToDelete.map(todo => todoCollection.delete(todo.id)));
-        }
-      }
+        const mutation = transaction.mutations[0]
+        await assigneeApi.delete(mutation.original.id)
+      },
     })
   )
 }
