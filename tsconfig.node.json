@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+  },
+  "include": ["vite.config.ts", "src/server/**/*", "src/shared/**/*", "src/collections/**/*", "src/database/**/*", "src/schemas/**/*"]
+}
