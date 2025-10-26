@@ -1,13 +1,15 @@
 {
   "compilerOptions": {
-    "composite": true,
-    "skipLibCheck": true,
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "esModuleInterop": true,
-    "outDir": "dist",
+      "composite": true,
+      "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+      "skipLibCheck": true,
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "allowSyntheticDefaultImports": true,
+      "strict": true,
+      "noEmit": true
   },
-  "include": ["vite.config.ts", "src/server/**/*", "src/shared/**/*", "src/collections/**/*", "src/database/**/*", "src/schemas/**/*"]
+  "include": [
+      "vite.config.ts"
+  ]
 }

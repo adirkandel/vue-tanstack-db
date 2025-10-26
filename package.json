@@ -6,11 +6,19 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f postgres",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:migrate": "cd backend && npm run migrate",
+    "backend:generate": "cd backend && npm run generate",
+    "backend:studio": "cd backend && npm run studio"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.16",
     "@tanstack/db": "^0.4.14",
+    "@tanstack/query-db-collection": "^0.2.36",
     "@tanstack/vue-db": "^0.0.69",
     "markdown-it": "^14.0.0",
     "pinia": "^2.1.0",

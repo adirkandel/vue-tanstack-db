@@ -1,6 +1,8 @@
 import { createCollection } from '@tanstack/vue-db'
-import { localStorageCollectionOptions } from '@tanstack/vue-db'
 import { z } from 'zod'
+import { queryCollectionOptions } from '@tanstack/query-db-collection'
+import { queryClient } from '../queryClient'
+import { todoApi } from '../api/todos'
 
 export const todoSchema = z.object({
   id: z.string(),
@@ -16,28 +18,34 @@ export const todoSchema = z.object({
 
 export type Todo = z.infer<typeof todoSchema>
 
-// Function to create todo collection using localStorage
 function createTodoCollection() {
   return createCollection(
-    localStorageCollectionOptions({
+    queryCollectionOptions({
       id: 'todos',
-      storageKey: 'todos',
+      queryClient: queryClient,
+      queryKey: ['todos'],
+      queryFn: async () => {
+        return todoApi.getAll()
+      },
       getKey: (todo: Todo) => todo.id,
+      
+      // Insert handler
       onInsert: async ({ transaction }) => {
-        const mutation = transaction.mutations[0];
-        console.log('Todo inserted:', mutation.modified);
-        // localStorage persistence is handled automatically
+        const mutation = transaction.mutations[0]
+        await todoApi.create(mutation.modified)
       },
+      
+      // Update handler
       onUpdate: async ({ transaction }) => {
-        const mutation = transaction.mutations[0];
-        console.log('Todo updated:', mutation.original.id, mutation.changes);
-        // localStorage persistence is handled automatically
+        const mutation = transaction.mutations[0]
+        await todoApi.update(mutation.original.id, mutation.changes)
       },
+      
+      // Delete handler
       onDelete: async ({ transaction }) => {
-        const mutation = transaction.mutations[0];
-        console.log('Todo deleted:', mutation.original.id);
-        // localStorage persistence is handled automatically
-      }
+        const mutation = transaction.mutations[0]
+        await todoApi.delete(mutation.original.id)
+      },
     })
   )
 }

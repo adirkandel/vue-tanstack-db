@@ -97,7 +97,7 @@
                     :name="slotProps.option.name"
                     size="small"
                   />
-                  <span>{{ slotProps.option.name }}</span>
+                  <span>{{ slotProps.option.isNew ? `+ Add "${slotProps.option.name}"` : slotProps.option.name }}</span>
                 </div>
               </template>
             </Select>
@@ -123,15 +123,17 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useLiveQuery } from '@tanstack/vue-db'
-import { todoCollection } from '../collections/todoCollection'
-import { assigneeCollection } from '../collections/assigneeCollection'
+import { useLiveQuery, createTransaction } from '@tanstack/vue-db'
+import { Todo, todoCollection } from '../collections/todoCollection'
+import { Assignee, assigneeCollection } from '../collections/assigneeCollection'
 import Card from '../volt/Card.vue'
 import Button from '../volt/Button.vue'
 import InputText from '../volt/InputText.vue'
 import Select from '../volt/Select.vue'
 import DatePicker from '../volt/DatePicker.vue'
 import AssigneeAvatar from './AssigneeAvatar.vue'
+import { assigneeApi } from '@/api/assignees'
+import { todoApi } from '@/api/todos'
 
 const emit = defineEmits<{
   todoCreated: []
@@ -146,6 +148,7 @@ const form = ref({
 })
 
 const pendingAssigneeName = ref('')
+const pendingAssignee = ref<{ id: string; name: string; createdAt: Date; updatedAt: Date } | null>(null)
 
 // Priority options
 const priorityOptions = [
@@ -170,19 +173,27 @@ const { data: assignees } = useLiveQuery((q) =>
   q.from({ assignees: assigneeCollection })
 )
 
+// Include pending assignee in the list for display purposes
+const allAssignees = computed(() => {
+  if (!assignees.value) return []
+  if (pendingAssignee.value) {
+    return [...assignees.value, pendingAssignee.value]
+  }
+  return assignees.value
+})
+
 const selectedAssignee = computed(() => {
-  if (!form.value.assigneeId || !assignees.value) return null
-  return assignees.value.find(a => a.id === form.value.assigneeId) || null
+  if (!form.value.assigneeId) return null
+  return allAssignees.value.find(a => a.id === form.value.assigneeId) || null
 })
 
 const assigneesOptionValues = computed(() => {
-  if (!assignees.value) return []
-  return assignees.value.map(a => ({ id: a.id, name: a.name }))
+  return allAssignees.value.map(a => ({ id: a.id, name: a.name }))
 })
 
 const assigneesOptionValuesWithAdd = computed(() => {
   const options = assigneesOptionValues.value
-  if (pendingAssigneeName.value && pendingAssigneeName.value.trim()) {
+  if (pendingAssigneeName.value && pendingAssigneeName.value.trim() && !pendingAssignee.value) {
     // Check if the pending name already exists
     const exists = options.some(opt => 
       opt.name.toLowerCase() === pendingAssigneeName.value.toLowerCase()
@@ -190,7 +201,7 @@ const assigneesOptionValuesWithAdd = computed(() => {
     if (!exists) {
       return [
         ...options,
-        { id: `add-${pendingAssigneeName.value}`, name: `+ Add "${pendingAssigneeName.value}"` }
+        { id: `add-${pendingAssigneeName.value}`, name: pendingAssigneeName.value, isNew: true }
       ]
     }
   }
@@ -203,13 +214,13 @@ const handleAssigneeFilter = (event: any) => {
   }
 }
 
-const handleAssigneeChange = async (event: any) => {
+const handleAssigneeChange = (event: any) => {
   const newValue = event.value
   // Check if it's an "add" action
   if (newValue && typeof newValue === 'string' && newValue.startsWith('add-')) {
     const nameToAdd = newValue.replace('add-', '')
     
-    // Create the assignee
+    // Store the pending assignee to be created along with the todo
     const now = new Date()
     const newAssignee = {
       id: `assignee-${Date.now()}`,
@@ -218,10 +229,9 @@ const handleAssigneeChange = async (event: any) => {
       updatedAt: now,
     }
 
-    // Insert assignee into collection
-    await assigneeCollection.insert(newAssignee)
+    pendingAssignee.value = newAssignee
     
-    // Select the newly created assignee
+    // Select the newly created assignee ID
     form.value.assigneeId = newAssignee.id
     pendingAssigneeName.value = ''
   }
@@ -232,21 +242,58 @@ const handleSubmit = async () => {
     return
   }
 
-  const now = new Date()
-  const todo = {
-    id: `todo-${Date.now()}`,
-    title: form.value.title.trim(),
-    completed: false,
-    priority: form.value.priority,
-    category: form.value.category || undefined,
-    dueDate: form.value.dueDate ? new Date(form.value.dueDate) : undefined,
-    assigneeId: form.value.assigneeId,
-    createdAt: now,
-    updatedAt: now,
-  }
+  // Create a transaction that batches both assignee and todo creation
+  const tx = createTransaction({
+    mutationFn: async ({ transaction }) => {
+      console.log("adir - transaction", transaction);
+      for (const mutation of transaction.mutations) {
+        switch (mutation.collection.id) {
+          case 'assignees':
+            await assigneeApi.create(mutation.modified as Assignee)
+            break
+          case 'todos':
+            await todoApi.create(mutation.modified as Todo)
+            break
+          default:
+            break
+        }
+        mutation.collection.utils.writeInsert(mutation.modified)
+        await mutation.collection.utils.refetch()
+      }
+    },
+  })
 
-  // Insert todo into collection
-  await todoCollection.insert(todo)
+  // Perform mutations within the transaction
+  tx.mutate(() => {
+    // First, insert the pending assignee if it exists
+    if (pendingAssignee.value) {
+      assigneeCollection.insert(pendingAssignee.value)
+    }
+
+    // Then, insert the todo
+    const now = new Date()
+    const todo = {
+      id: `todo-${Date.now()}`,
+      title: form.value.title.trim(),
+      completed: false,
+      priority: form.value.priority,
+      category: form.value.category || undefined,
+      dueDate: form.value.dueDate ? new Date(form.value.dueDate) : undefined,
+      assigneeId: form.value.assigneeId,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    todoCollection.insert(todo)
+  })
+
+  // Wait for the transaction to complete
+  await tx.isPersisted.promise
+
+  // Clear pending assignee after successful submission
+  if (pendingAssignee.value) {
+    pendingAssignee.value = null
+  }
 
   // Reset form
   form.value = {
