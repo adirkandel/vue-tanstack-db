@@ -30,9 +30,16 @@ router.get('/:id', async (req, res) => {
   }
 })
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // POST /api/assignees - Create assignee
 router.post('/', async (req, res) => {
   try {
+    // test transaction rollback
+    // await sleep(3000)
+    // throw new Error('Failed to create assignee')
     const assigneesData = {
       ...req.body,
       createdAt: req.body.createdAt ? new Date(req.body.createdAt) : new Date(),

@@ -13,7 +13,10 @@
     "backend:dev": "cd backend && npm run dev",
     "backend:migrate": "cd backend && npm run migrate",
     "backend:generate": "cd backend && npm run generate",
-    "backend:studio": "cd backend && npm run studio"
+    "backend:studio": "cd backend && npm run studio",
+    "presentation:dev": "cd presentation && npm run dev",
+    "presentation:build": "cd presentation && npm run build",
+    "presentation:export": "cd presentation && npm run export"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.16",
