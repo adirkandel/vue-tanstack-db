@@ -1,0 +1,15 @@
+{
+  "name": "tanstack-db-presentation",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "slidev",
+    "build": "slidev build",
+    "export": "slidev export"
+  },
+  "dependencies": {
+    "@slidev/cli": "^0.50.0",
+    "@slidev/theme-apple-basic": "^0.25.1",
+    "playwright-chromium": "^1.40.0"
+  }
+}

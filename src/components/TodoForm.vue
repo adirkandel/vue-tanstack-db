@@ -242,68 +242,69 @@ const handleSubmit = async () => {
     return
   }
 
-  // Create a transaction that batches both assignee and todo creation
-  const tx = createTransaction({
-    mutationFn: async ({ transaction }) => {
-      console.log("adir - transaction", transaction);
-      for (const mutation of transaction.mutations) {
-        switch (mutation.collection.id) {
-          case 'assignees':
-            await assigneeApi.create(mutation.modified as Assignee)
-            break
-          case 'todos':
-            await todoApi.create(mutation.modified as Todo)
-            break
-          default:
-            break
+  try {
+    // Create a transaction that batches both assignee and todo creation
+    const tx = createTransaction({
+      mutationFn: async ({ transaction }) => {
+        for (const mutation of transaction.mutations) {
+          switch (mutation.collection.id) {
+            case 'assignees':
+              await assigneeApi.create(mutation.modified as Assignee)
+              break
+            case 'todos':
+              await todoApi.create(mutation.modified as Todo)
+              break
+            default:
+              break
+          }
         }
-        mutation.collection.utils.writeInsert(mutation.modified)
-        await mutation.collection.utils.refetch()
+      },
+    })
+
+    // Perform mutations within the transaction
+    tx.mutate(() => {
+      // First, insert the pending assignee if it exists
+      if (pendingAssignee.value) {
+        assigneeCollection.insert(pendingAssignee.value)
       }
-    },
-  })
 
-  // Perform mutations within the transaction
-  tx.mutate(() => {
-    // First, insert the pending assignee if it exists
+      // Then, insert the todo
+      const now = new Date()
+      const todo = {
+        id: `todo-${Date.now()}`,
+        title: form.value.title.trim(),
+        completed: false,
+        priority: form.value.priority,
+        category: form.value.category || undefined,
+        dueDate: form.value.dueDate ? new Date(form.value.dueDate) : undefined,
+        assigneeId: form.value.assigneeId,
+        createdAt: now,
+        updatedAt: now,
+      }
+
+      todoCollection.insert(todo)
+    })
+
+    // Wait for the transaction to complete
+    await tx.isPersisted.promise
+
+    // Clear pending assignee after successful submission
     if (pendingAssignee.value) {
-      assigneeCollection.insert(pendingAssignee.value)
+      pendingAssignee.value = null
     }
 
-    // Then, insert the todo
-    const now = new Date()
-    const todo = {
-      id: `todo-${Date.now()}`,
-      title: form.value.title.trim(),
-      completed: false,
-      priority: form.value.priority,
-      category: form.value.category || undefined,
-      dueDate: form.value.dueDate ? new Date(form.value.dueDate) : undefined,
-      assigneeId: form.value.assigneeId,
-      createdAt: now,
-      updatedAt: now,
+    // Reset form
+    form.value = {
+      title: '',
+      priority: 'medium',
+      category: null,
+      dueDate: null,
+      assigneeId: undefined,
     }
 
-    todoCollection.insert(todo)
-  })
-
-  // Wait for the transaction to complete
-  await tx.isPersisted.promise
-
-  // Clear pending assignee after successful submission
-  if (pendingAssignee.value) {
-    pendingAssignee.value = null
+    emit('todoCreated')
+  } catch (error) {
+    console.error('Error creating todo:', error)
   }
-
-  // Reset form
-  form.value = {
-    title: '',
-    priority: 'medium',
-    category: null,
-    dueDate: null,
-    assigneeId: undefined,
-  }
-
-  emit('todoCreated')
 }
 </script>

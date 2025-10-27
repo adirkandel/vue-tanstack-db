@@ -46,7 +46,6 @@ export function getColorFromName(name: string): string {
   return colors[Math.abs(hash) % colors.length]
 }
 
-// Function to create assignee collection with custom sync
 function createAssigneeCollection() {
   return createCollection(
     queryCollectionOptions({
