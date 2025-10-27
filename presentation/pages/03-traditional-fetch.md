@@ -2,6 +2,12 @@
 layout: statement
 ---
 
+<img src="/assets/me-and-tanner.png" />
+
+---
+layout: statement
+---
+
 # The Challenges of Traditional Data Fetching
 <br/>
 
